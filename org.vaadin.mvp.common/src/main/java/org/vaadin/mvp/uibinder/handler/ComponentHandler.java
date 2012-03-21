@@ -76,8 +76,11 @@ public class ComponentHandler implements TargetHandler {
   Component current = null;
 
   /** The method to add the current component to the parent. Can be null. */
-  private Method currentMethod;
+  //private Method currentMethod;
 
+  /** Invokes stack - currently components and methods */
+  Stack<Object> invokes = new Stack<Object>();
+  
   /**
    * Constructor.
    * 
@@ -89,6 +92,7 @@ public class ComponentHandler implements TargetHandler {
     this.uiBinder = uiBinder;
     this.locale = locale;
     current = view;
+    invokes.push(current);
   }
 
   public IEventBinder getEventBinder() {
@@ -110,8 +114,8 @@ public class ComponentHandler implements TargetHandler {
 
   @Override
   public void handleElementOpen(String uri, String name) throws UiBinderException {
-    components.push(current);
     logger.debug("handleElement: {} {}", uri, name);
+    components.push(current);
     String viewName = null;
     try {
       String packageName = namespaceUriToPackageName(uri);
@@ -128,6 +132,7 @@ public class ComponentHandler implements TargetHandler {
             comp = (Component) uiClass.newInstance();
           }
           current = comp;
+          invokes.push(current);
         } catch (ClassNotFoundException e) {
           throw new UiConstraintException("No component could be created with name: " + viewName
               + " - the component is neither instantiable nor bindable from XML definition");
@@ -192,28 +197,36 @@ public class ComponentHandler implements TargetHandler {
   @Override
   public void handleElementClose() throws UiBinderException {
     Component inner = current;
-    current = components.pop(); // should always be one on the stack
+    current = components.pop(); 
+    invokes.pop();
+    Object invoke = invokes.peek();
 
     logger.debug("Adding element {} to {}", inner.getClass().getName(), current.getClass().getName());
 
     // add the inner component to the current
-    if (currentMethod != null) {
+    if (invoke instanceof Method) {
+      // sanity check for next operation - two following operation arn't allowed
+      invokes.pop();
+      Object nextInvoke = invokes.peek(); 
+      if (nextInvoke instanceof Method) {
+          throw new UiBinderException("Two following operation are not allowed "
+                  + ((Method)invoke).getName() + "," + ((Method)nextInvoke).getName());
+      }
       try {
         if (inner instanceof Component) {
-          currentMethod.invoke(current, inner);
+        	((Method)invoke).invoke(current, inner);
         }
       } catch (IllegalArgumentException e) {
         throw new UiBinderException("IllegalArgumentException: Cannot add component " + inner.getClass().getName() + " with method "
-            + this.currentMethod.getName() + "(" + currentMethod.getParameterTypes()[0].getName() + ")", e);
+            + ((Method)invoke).getName() + "(" + ((Method)invoke).getParameterTypes()[0].getName() + ")", e);
       } catch (IllegalAccessException e) {
         throw new UiBinderException("IllegalAccessException: Cannot add component " + inner.getClass().getName() + " with method "
-            + this.currentMethod.getName() + "(" + currentMethod.getParameterTypes()[0].getName() + ")", e);
+            + ((Method)invoke).getName() + "(" + ((Method)invoke).getParameterTypes()[0].getName() + ")", e);
       } catch (InvocationTargetException e) {
         throw new UiBinderException("InvocationTargetException: Cannot ad component " + inner.getClass().getName() + " with method "
-            + this.currentMethod.getName() + "(" + currentMethod.getParameterTypes()[0].getName() + ")", e);
+            + ((Method)invoke).getName() + "(" + ((Method)invoke).getParameterTypes()[0].getName() + ")", e);
       }
-      logger.debug("Add current {} with Method {}", current.getClass().getName(), this.currentMethod.getName());
-      currentMethod = null;
+      logger.debug("Add element {} with Method {} to {}", new Object[] {inner.getClass().getName(), ((Method)invoke).getName(), current.getClass().getName()});
     } else {
       if (current instanceof Panel && inner instanceof ComponentContainer) {
         // set content
@@ -314,18 +327,7 @@ public class ComponentHandler implements TargetHandler {
     return null;
   }
 
-  /**
-   * Set the method to add the current component to the parent. The standard
-   * will be used when not set and the method will be cleared after
-   * {@link #handleElementClose()}.
-   * 
-   * @param currentMethod
-   */
-  public void setCurrentMethod(Method currentMethod) {
-    this.currentMethod = currentMethod;
-  }
-
-  protected Method getCurrentMethod() {
-    return currentMethod;
+  public Stack<Object> getInvokes() {
+    return this.invokes;	
   }
 }

@@ -34,7 +34,7 @@ public class MethodHandler implements TargetHandler {
     if (method == null) {
       throw new IllegalArgumentException("The method " + name + " is missing in " + ch.getCurrent().getClass());
     }
-    ch.setCurrentMethod(method);
+	ch.getInvokes().push(method);
   }
 
   @Override

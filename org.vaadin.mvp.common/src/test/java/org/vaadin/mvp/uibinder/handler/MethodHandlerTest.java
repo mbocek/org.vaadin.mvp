@@ -32,7 +32,7 @@ public class MethodHandlerTest {
   public void handleElementOpen() {
     instance.handleElementOpen("", "addComponent");
 
-    Method m = ch.getCurrentMethod();
+    Method m = (Method)ch.getInvokes().pop();
     assertNotNull(m);
     assertEquals("addComponent", m.getName());
     assertEquals(1, m.getParameterTypes().length);

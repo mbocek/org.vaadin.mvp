@@ -10,6 +10,7 @@ import org.springframework.context.annotation.Scope;
 import org.springframework.stereotype.Component;
 import org.vaadin.mvp.eventbus.EventBus;
 import org.vaadin.mvp.presenter.AbstractPresenterFactory;
+import org.vaadin.mvp.presenter.IFactoryAwarePresenter;
 import org.vaadin.mvp.presenter.IPresenter;
 import org.vaadin.mvp.presenter.IViewFactory;
 import org.vaadin.mvp.presenter.PresenterFactory;
@@ -49,6 +50,9 @@ public class SpringPresenterFactory extends AbstractPresenterFactory implements 
     String beanName = (String) name;
     if (applicationContext.containsBean(beanName)) {
       IPresenter p = applicationContext.getBean(beanName, IPresenter.class);
+      if(p instanceof IFactoryAwarePresenter) {
+          ((IFactoryAwarePresenter) p).setPresenterFactory(this);
+      }
       p.setApplication(application);
       p.setMessageSource(messageSource);   
       Presenter def = p.getClass().getAnnotation(Presenter.class);
